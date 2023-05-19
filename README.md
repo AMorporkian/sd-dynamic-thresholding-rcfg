@@ -1,5 +1,16 @@
 # Stable Diffusion Dynamic Thresholding (CFG Scale Fix)
 
+### Update 
+Implemented Rescale Classifier-Free Guidance 
+https://arxiv.org/abs/2305.08891
+
+Added options:
+![img.png](img.png)
+
+Original Dynamic Thresholding behavior is available if you set MEAN/AD, Phi 1.0
+
+RCFG Behavior is available if you set ZERO/STD, Phi 0.7, mimic scale 1
+
 ### Concept
 
 Extension for the [AUTOMATIC1111 Stable Diffusion WebUI](https://github.com/AUTOMATIC1111/stable-diffusion-webui) that enables a way to use higher CFG Scales without color issues.
