@@ -2,10 +2,12 @@
 
 ### Update 
 Implemented Rescale Classifier-Free Guidance 
+
 https://arxiv.org/abs/2305.08891
 
+![xyz_grid-0032-2448144597 (1).png](res/images/xyz_grid-0032-2448144597.png)
 Added options:
-![img.png](img.png)
+![img.png](res/images/img.png)
 
 Original Dynamic Thresholding behavior is available if you set MEAN/AD, Phi 1.0
 
