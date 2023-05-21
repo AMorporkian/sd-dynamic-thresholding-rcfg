@@ -1,5 +1,9 @@
 # Stable Diffusion Dynamic Thresholding (CFG Scale Fix)
 
+### Disclaimer
+
+This repo is a fork of original [Dynamic Thresholding](https://github.com/mcmonkeyprojects/sd-dynamic-thresholding) extension. I am in no way affiliated with the creator of original repo, but I'll keep their sponsor link because this repo is their work.
+
 ### Update 
 Implemented Rescale Classifier-Free Guidance 
 
