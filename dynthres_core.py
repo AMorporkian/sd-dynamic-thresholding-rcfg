@@ -13,6 +13,15 @@ class DynThreshVariabilityMeasure(enum.IntEnum):
     STD = 0
     AD = 1
 
+def rescale_cfg(cond, uncond, cond_scale, multiplier=0.7):
+    x_cfg = uncond + cond_scale * (cond - uncond)
+    ro_pos = torch.std(cond, dim=(1,2,3), keepdim=True)
+    ro_cfg = torch.std(x_cfg, dim=(1,2,3), keepdim=True)
+
+    x_rescaled = x_cfg * (ro_pos / ro_cfg)
+    x_final = multiplier * x_rescaled + (1.0 - multiplier) * x_cfg
+
+    return x_final
 class DynThresh:
     def __init__(self, mimic_scale, separate_feature_channels, scaling_startpoint,variability_measure,interpolate_phi,threshold_percentile, mimic_mode, mimic_scale_min, cfg_mode, cfg_scale_min, power_val, experiment_mode, maxSteps):
         self.mimic_scale = mimic_scale
@@ -53,16 +62,6 @@ class DynThresh:
             scale *= 1.0 - math.pow(self.step / max, self.power_val)
         scale += min
         return scale
-    
-    def rescale_cfg(cond, uncond, cond_scale):
-            x_cfg = uncond + cond_scale * (cond - uncond)
-            ro_pos = torch.std(cond, dim=(1,2,3), keepdim=True)
-            ro_cfg = torch.std(x_cfg, dim=(1,2,3), keepdim=True)
-
-            x_rescaled = x_cfg * (ro_pos / ro_cfg)
-            x_final = multiplier * x_rescaled + (1.0 - multiplier) * x_cfg
-
-            return x_final
 
     def dynthresh(self, cond, uncond, cfgScale, weights):
         return rescale_cfg(cond, uncond, cfgScale, self.interpolate_phi)
