@@ -3,7 +3,7 @@ class RescaleCFG:
     def __init__(self, phi):
         self.phi = phi
 
-    def dynthresh(self, cond, uncond, cfg, weights):
+    def dynthresh(self, cond, uncond, cfg):
         x_cfg = uncond + cfg * (cond - uncond)
         ro_pos = torch.std(cond, dim=(1,2,3), keepdim=True)
         ro_cfg = torch.std(x_cfg, dim=(1,2,3), keepdim=True)
