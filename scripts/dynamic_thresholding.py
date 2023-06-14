@@ -42,7 +42,8 @@ class Script(scripts.Script):
             show_progress = False)
         self.infotext_fields = (
             (enabled, lambda d: gr.Checkbox.update(value="Enable Rescale CFG" in d)),
-            (interpolate_phi, "Interpolate Phi"),
+            (interpolate_phi, "Interpolate Phi")
+        )
         return [enabled, interpolate_phi]
 
     last_id = 0
