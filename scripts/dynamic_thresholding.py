@@ -13,15 +13,9 @@
 import gradio as gr
 import torch, traceback
 import dynthres_core
-from dynthres_core import DynThreshScalingStartpoint, DynThreshVariabilityMeasure
 from modules import scripts, script_callbacks, sd_samplers, sd_samplers_compvis, sd_samplers_kdiffusion, sd_samplers_common
-try:
-    import dynthres_unipc
-except Exception as e:
-    print(f"\n\n======\nError! UniPC sampler support failed to load! Is your WebUI up to date?\n(Error: {e})\n======")
 
 ######################### Data values #########################
-VALID_MODES = ["Constant", "Linear Down", "Cosine Down", "Half Cosine Down", "Linear Up", "Cosine Up", "Half Cosine Up", "Power Up", "Power Down"]
 
 ######################### Script class entrypoint #########################
 class Script(scripts.Script):
@@ -34,42 +28,37 @@ class Script(scripts.Script):
 
     def ui(self, is_img2img):
         enabled = gr.Checkbox(value=False, label="Enable Rescale CFG")
-        interpolate_phi = gr.Slider(minimum=0.0, maximum=1.0, step=0.01, label="Interpolate Phi",value=0.7)
-        enabled.change(
-            fn=lambda x: {"visible": x, "__type__": "update"},
-            inputs=[enabled],
-            outputs=[accordion],
-            show_progress = False)
+        phi = gr.Slider(minimum=0.0, maximum=1.0, step=0.05, label="Phi",value=0.7)
+
         self.infotext_fields = (
             (enabled, lambda d: gr.Checkbox.update(value="Enable Rescale CFG" in d)),
-            (interpolate_phi, "Interpolate Phi")
+            (phi, "Interpolate Phi")
         )
-        return [enabled, interpolate_phi]
+        return [enabled,phi]
 
     last_id = 0
 
-    def process_batch(self, p, enabled, phi, prompts, seeds, subseeds):
+    def process_batch(self, p, enabled, phi, prompts, seeds, subseeds, batch_number):
         enabled = getattr(p, 'rescale_enabled', enabled)
         if not enabled:
             return
         orig_sampler_name = p.sampler_name
         phi = getattr(p, 'rescale_phi', phi)
-        p.extra_generation_params["RescaleCFG Enabled"] = True
-        p.extra_generation_params["Interpolate Phi"] = phi
+        p.extra_generation_params["Rescale Phi"] = phi
         
         Script.last_id += 1
         fixed_sampler_name = f"{orig_sampler_name}_rescalecfg{Script.last_id}"
 
         sampler = sd_samplers.all_samplers_map[orig_sampler_name]
-        rescaleData = dynthres_core.RescaleCFG(interpolate_phi)
+        rescale_data = dynthres_core.RescaleCFG(phi)
         if orig_sampler_name == "UniPC":
             def uniPCConstructor(model):
-                return CustomVanillaSDSampler(dynthres_unipc.CustomUniPCSampler, model, dtData)
+                return CustomVanillaSDSampler(dynthres_unipc.CustomUniPCSampler, model, rescale_data)
             newSampler = sd_samplers_common.SamplerData(fixed_sampler_name, uniPCConstructor, sampler.aliases, sampler.options)
         else:
             def newConstructor(model):
                 result = sampler.constructor(model)
-                cfg = CustomCFGDenoiser(result.model_wrap_cfg.inner_model, dtData)
+                cfg = CustomCFGDenoiser(result.model_wrap_cfg.inner_model, rescale_data)
                 result.model_wrap_cfg = cfg
                 return result
             newSampler = sd_samplers_common.SamplerData(fixed_sampler_name, newConstructor, sampler.aliases, sampler.options)
@@ -92,24 +81,22 @@ class Script(scripts.Script):
 ######################### CompVis Implementation logic #########################
 
 class CustomVanillaSDSampler(sd_samplers_compvis.VanillaStableDiffusionSampler):
-    def __init__(self, constructor, sd_model, dtData):
+    def __init__(self, constructor, sd_model, rescale_data):
         super().__init__(constructor, sd_model)
-        self.sampler.main_class = dtData
+        self.sampler.main_class = rescale_data
 
 ######################### K-Diffusion Implementation logic #########################
 
 class CustomCFGDenoiser(sd_samplers_kdiffusion.CFGDenoiser):
-    def __init__(self, model, dtData):
+    def __init__(self, model, rescale_data):
         super().__init__(model)
-        self.main_class = dtData
+        self.main_class = rescale_data
 
     def combine_denoised(self, x_out, conds_list, uncond, cond_scale):
         denoised_uncond = x_out[-uncond.shape[0]:]
-        # conds_list shape is (batch, cond, 2)
-        weights = torch.tensor(conds_list, device=uncond.device).select(2, 1)
-        weights = weights.reshape(*weights.shape, 1, 1, 1)
         self.main_class.step = self.step
-        return self.main_class.dynthresh(x_out[:-uncond.shape[0]], denoised_uncond, cond_scale, weights)
+        return self.main_class.dynthresh(x_out[:-uncond.shape[0]], denoised_uncond, cond_scale)
+       
 
 ######################### XYZ Plot Script Support logic #########################
 
@@ -123,7 +110,7 @@ def make_axis_options():
         return fun
 
     extra_axis_options = [
-        xyz_grid.AxisOption("[RescaleCFG] Phi", float, xyz_grid.apply_field("dynthres_interpolate_phi")),
+        xyz_grid.AxisOption("[RescaleCFG] Phi", float, xyz_grid.apply_field("rescale_phi")),
     ]
     if not any("[RescaleCFG]" in x.label for x in xyz_grid.axis_options):
         xyz_grid.axis_options.extend(extra_axis_options)
