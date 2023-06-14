@@ -34,7 +34,6 @@ class Script(scripts.Script):
 
     def ui(self, is_img2img):
         enabled = gr.Checkbox(value=False, label="Enable Rescale CFG")
-        # "Dynamic Thresholding (CFG Scale Fix)"
         interpolate_phi = gr.Slider(minimum=0.0, maximum=1.0, step=0.01, label="Interpolate Phi",value=0.7)
         enabled.change(
             fn=lambda x: {"visible": x, "__type__": "update"},
@@ -48,23 +47,20 @@ class Script(scripts.Script):
 
     last_id = 0
 
-    def process_batch(self, p, enabled, interpolate_phi, prompts, seeds, subseeds):
-        enabled = getattr(p, 'dynthres_enabled', enabled)
+    def process_batch(self, p, enabled, phi, prompts, seeds, subseeds):
+        enabled = getattr(p, 'rescale_enabled', enabled)
         if not enabled:
             return
         orig_sampler_name = p.sampler_name
-        interpolate_phi = getattr(p, 'dynthres_interpolate_phi', interpolate_phi)
+        phi = getattr(p, 'rescale_phi', phi)
         p.extra_generation_params["RescaleCFG Enabled"] = True
-        p.extra_generation_params["Interpolate Phi"] = interpolate_phi
-        p.extra_generation_params["Threshold percentile"] = threshold_percentile
+        p.extra_generation_params["Interpolate Phi"] = phi
         
         Script.last_id += 1
         fixed_sampler_name = f"{orig_sampler_name}_rescalecfg{Script.last_id}"
-        # Percentage to portion
-        threshold_percentile *= 0.01
-        # Make a placeholder sampler
+
         sampler = sd_samplers.all_samplers_map[orig_sampler_name]
-        rescaleData = dynthres_core.DynThresh(interpolate_phi, p.steps)
+        rescaleData = dynthres_core.RescaleCFG(interpolate_phi)
         if orig_sampler_name == "UniPC":
             def uniPCConstructor(model):
                 return CustomVanillaSDSampler(dynthres_unipc.CustomUniPCSampler, model, dtData)
@@ -84,7 +80,7 @@ class Script(scripts.Script):
         if p.sampler is not None:
             p.sampler = sd_samplers.create_sampler(fixed_sampler_name, p.sd_model)
 
-    def postprocess_batch(self, p, enabled, mimic_scale,separate_feature_channels, scaling_startpoint,variability_measure, interpolate_phi,threshold_percentile, mimic_mode, mimic_scale_min, cfg_mode, cfg_scale_min, powerscale_power, batch_number, images):
+    def postprocess_batch(self, p, enabled, phi, batch_number, images):
         if not enabled or not hasattr(p, 'orig_sampler_name'):
             return
         p.sampler_name = p.orig_sampler_name
